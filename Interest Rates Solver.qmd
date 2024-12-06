@@ -1,0 +1,81 @@
+---
+title: "Fixed Income HW4"
+author: "Cohort 1 Group 5"
+format: pdf
+---
+
+```{r}
+library(readxl)
+Paths <- read_excel("Homework_4_Data_Paths.xlsx", skip = 4)
+Paths <- as.data.frame(sapply(Paths, as.numeric))
+```
+
+
+
+```{r}
+avg_r <- matrix(10*200, nrow=200, ncol=10)
+for (i in 1:10){
+  for (j in 1:200){
+    avg_r[j,i] <- mean(as.numeric(Paths[j,0:i+1]))
+  }
+}
+```
+
+
+```{r}
+avg_p <- matrix(10*200, nrow=200, ncol=10)
+Time <- seq(1:10)
+for (i in 1:10){
+  avg_p[,i] <- exp(-avg_r[,i] * Time[i])
+}
+D <- colSums(avg_p)/200;D
+```
+(b)
+```{r}
+payoff <- matrix(5*200, nrow=200, ncol=5)
+payoff <- round(pmax(Paths[,2:6]-0.037, 0)*100, 4)
+payoff[is.na(payoff)] <- 0
+```
+```{r}
+mean(rowSums(avg_p[,1:5] * payoff))
+```
+(c)
+```{r}
+payoff2 <- matrix(5*200, nrow=200, ncol=5)
+payoff2 <- round(pmax(0.02-Paths[,2:6], 0)*100, 4)
+payoff2[is.na(payoff2)] <- 0
+mean(rowSums(avg_p[,1:5] * payoff2))
+```
+(d)
+```{r}
+check <- matrix(0*2000, nrow=200, ncol=10)
+for (i in 1:10){
+  for (j in 1:200){
+    if (Paths[j,i+1]>=0.02 && Paths[j,i+1]<=0.04){
+      check[j,i] = Paths[j,i+1] * 100
+    }
+  }
+}
+mean(rowSums(avg_p[,1:10] * check))
+```
+(e)
+```{r}
+pay <- 2 * Paths[2:6] - 0.06
+mean(rowSums(avg_p[,1:5] * pay * 100))
+```
+
+(f)
+```{r}
+short_rate <- Paths$'5'
+short_rate <- round(pmax(Paths$'5'-0.04, 0)*100, 4)
+short_rate[is.na(short_rate)] <- 0
+mean(avg_p[,5] * short_rate)
+```
+```{r}
+avg_rate <- round(pmax(avg_r[,5]-0.04, 0)*100, 4)
+avg_rate[is.na(short_rate)] <- 0
+mean(avg_p[,5] * avg_rate)
+```
+
+The option on short term interest rate is more valuable.
+

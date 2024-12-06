@@ -1,0 +1,135 @@
+---
+title: "Fixed Income Homework 2"
+author: "Cohort 1 Group 5"
+format: pdf
+---
+Group Members: 
+
+Mauro Garcia Gomez; Gabriel de Villiers de La Noue; Yichao Sun; Yahan Yang;
+
+
+```{r}
+library(readxl)
+STRIP <- read_excel("Homework_2_Data.xlsx")
+```
+
+```{r}
+D_T <- STRIP$Price / 100
+Spot <- 2 * ((D_T) ^ (-1/( 2* STRIP$Maturity)) -1 )
+Forward <- c()
+for (i in 1:(length(Spot)-1)){
+  Forward[i] = ((D_T[i]/D_T[i+1]) - 1)/0.25
+}
+plot(Spot, type = "l", col = "blue", lwd = 2, ylab = "Spot Rate", 
+     xlab = "", 
+     main = "Spot Rate",
+     ylim = c(-0.1,0.25))
+lines(Forward, type = "l", col = "red", lwd = 2)
+
+# Add legend
+legend("topleft", legend = c("Spot", "Forward"), col = c("blue", "red"), lty = 1, lwd = 2)
+```
+```{r}
+y <- log(D_T)
+x <- cbind(STRIP$Maturity,STRIP$Maturity^2,STRIP$Maturity^3,STRIP$Maturity^4,STRIP$Maturity^5)
+model <- lm(y ~ 0 + x)
+est <- coef(model);est
+```
+
+
+```{r}
+discount <- function(time) {
+  result <- exp(est[1]*time + est[2]*time^2+est[3] * time^3+est[4]*time^4+est[5]*time^5)
+  return(result)
+}
+time_seq <- seq(0.5,25,0.5)
+D_T2 <- c()
+for (i in 1:length(time_seq)){
+  D_T2[i] <- discount(time_seq[i])
+}
+Spot2 <- 2 * ((D_T2) ^ (-1/( 2* time_seq)) -1 )
+
+plot(Spot2, type = "l", col = "blue", lwd = 2, ylab = "Spot Rate", 
+     xlab = "", 
+     main = "Spot Rate")
+
+```
+```{r}
+par <- c()
+for (i in 1:length(D_T2)){
+  par[i] <- 2 * ((100  - 100 * D_T2[i]) / sum(D_T2[1:i]))
+}
+plot(par/100, type = "l", col = "purple", lwd = 2, ylab = "Par Rate", 
+     xlab = "", 
+     main = "Par Rate")
+
+```
+
+```{r}
+Forward2 <- c()
+for (i in 1:(length(Spot2)-1)){
+  Forward2[i] = ((D_T2[i]/D_T2[i+1]) - 1)/0.5
+}
+
+plot(Forward2, type = "l", col = "red", lwd = 2, ylab = "Forward Rate", 
+     xlab = "", 
+     main = "Forward Rate")
+```
+```{r}
+Treasury <- read_excel("Homework_2_Data.xlsx", sheet = 'T-Note')
+Treasury
+```
+```{r}
+x2 <- cbind(Treasury$Maturity,Treasury$Maturity^2,Treasury$Maturity^3,Treasury$Maturity^4,Treasury$Maturity^5)
+model2 <- lm(Treasury$Yield ~ x2)
+est2 <- coef(model2);est2
+```
+```{r}
+discount2 <- function(time) {
+  result <- est2[1]+est2[2]*time+est2[3]*time^2+est2[4]*time^3+est2[5]*time^4+est2[6]*time^5
+  return(result)
+}
+time_seq <- seq(0.5,25,0.5)
+Yield <- c()
+for (i in 1:length(time_seq)){
+  Yield[i] <- discount2(time_seq[i])
+}
+```
+
+
+```{r}
+D_T3 <- c(100/(100+Yield[1]/2))
+for (i in 2:length(Yield)){
+  D_T3[i] <-  (100 - Yield[i]/2 * sum(D_T3[1:i-1]))/(100 + Yield[i]/2)
+}
+```
+
+```{r}
+Spot3 <- 2 * ((D_T3) ^ (-1/( 2* time_seq)) -1 )
+
+Forward3 <- c()
+for (i in 1:(length(Spot3)-1)){
+  Forward3[i] = ((D_T3[i]/D_T3[i+1]) - 1)/0.5
+}
+par2 <- c()
+for (i in 1:length(D_T3)){
+  par2[i] <- 2 * ((100  - 100 * D_T3[i]) / sum(D_T3[1:i]))/100
+}
+```
+
+```{r}
+par(mfrow = c(1, 2))
+plot(Spot3, type = "l", col = "blue", lwd = 2, ylab = "Spot Rate", 
+     xlab = "", 
+     main = "Spot, Forward, Par(T-Note)",
+     ylim = c(0.02,0.07))
+lines(Forward3, type = "l", col = "red", lwd = 2)
+lines(par2, type = "l", col = "purple", lwd = 2)
+legend("topleft", legend = c("Spot", "Forward", "Par"), col = c("blue", "red", "purple"), lty = 1, lwd = 2, cex = 0.7)
+
+plot(par/100, type = "l", col = "purple", lwd = 2, ylab = "Rate", xlab = "", main = "Spot, Forward, Par(Strips)", ylim = c(0.02,0.07))
+lines(Spot2, type = "l", col = "blue", lwd = 2)
+lines(Forward2, type = "l", col = "red", lwd = 2)
+legend("topleft", legend = c("Spot", "Forward", "Par"), col = c("blue", "red", "purple"), lty = 1, lwd = 2, cex = 0.7)
+```
+By observing these two graphs, we can tell the spot rate and par rates have similar shape and trend in both cases. However, there is a large difference in the forward curve. In my opinion, there are several possible reasons lead to this result. First, the main difference bwteen STRIPS and T-Note is the coupon rate. There are no coupons for STRIPS. Therefore, the price is solely depend on the face value and the rates on maturity date. However, for T-Note, we need to consider both the coupon and the face value to determine the price. When we take the coupon into account, there are more factors might influence the rates. Since coupons are paid semi-annually, we should consider the intermediate influences before the maturity, leading to a more volatile forward curve. Secondly, like professor mentioned in the lecture, the reliability of the data should be considered. If this data is not clean or need to be justify, the trend for forward curve might be fixed with a more precise data. 

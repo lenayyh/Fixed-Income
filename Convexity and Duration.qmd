@@ -1,0 +1,141 @@
+---
+title: "Convexity and Duration"
+author: "Yahan Yang"
+format: pdf
+---
+
+```{r}
+library(readxl)
+SPOT <- na.omit(read_excel("~/Desktop/Homework_3_Data.xlsx"))
+```
+
+1. Using the spot curve in the accompanying spreadsheet, compute the par rates for bonds with maturities of 1, 2, 3, . . ., 10 years.
+```{r}
+date <- seq(2,20,by = 2)
+semi_par <- c()
+for (i in 1:length(SPOT$`D(T)`)){
+  semi_par[i] <- 2 * ((100  - 100 * SPOT$`D(T)`[i]) / sum(SPOT$`D(T)`[1:i]))
+}
+annual_par <- semi_par[date]
+print('Annual Par Rates:')
+print(annual_par)
+```
+
+2. Compute the DV01 for each of these 10 par bonds.
+DV01 Measures the price change in resulting from a one-basis point change in yield.
+```{r}
+time <- seq(1,10)
+Bond_price <- c()
+for (i in 1:length(time)){
+  # par rate = coupon
+  coupon <- annual_par[i]
+  # 1 bsp change in yield
+  yield_low <- annual_par[i] / 100 - 0.0001
+  pva <- (1 - 1 / ((1 + yield_low / 2)^(2 * time[i])))/(yield_low / 2)
+  pv <- 1 / ((1 + yield_low/2) ^ (2 * time[i]))
+  Bond_price[i] <- coupon/2 * pva + 100 * pv
+  
+}
+DV01 <- Bond_price - 100
+print('DV01:')
+print(DV01)
+```
+
+3. Compute the Macauley and modified durations for each of these 10 par bonds.
+```{r}
+time <- seq(1,10)
+Mc <- c()
+
+for (i in 1:10){
+  coupon <- annual_par[i]
+  yield <- annual_par[i]/100/2
+  N <- i * 2
+  CN <- coupon/2 * N
+  PV <- SPOT$`D(T)`[date][i]
+  Mc[i] <- (1 + 1/yield + (100 * (N-1) - 1/yield * (100 + CN))*(PV/100))/2 
+}
+
+Modified <- Mc/(1+annual_par/200)
+print('Macauley Duration:')
+print(Mc)
+print('Modified Duration:')
+print(Modified)
+```
+
+4. Assume that you have a $100 position in a 5-year par bond. What position in 2-year and 10-year par bonds would be needed to hedge the 5-year position against parallel shifts in the term structure?
+
+Long '$100' in 5 year bond. We want to match Modified Duration by using 2 yr and 10 yr bonds.
+
+Modified[5] = w * Modified[2] + (1-w) * Modified[10]; Solve for x:
+```{r}
+a <- Modified[5]
+b <-  Modified[2]
+c <-  Modified[10]
+weight <- (a-c)/(b-c)
+print(paste('Invest',round(weight*100,digit = 6),'% in 2 year bond and',round(100-weight*100,digit = 6),'% in 10 year bond.'))
+long_price_change <- - Modified[5] * 100 * 0.01
+short_price_change <- - (weight * Modified[2]+(1-weight) * Modified[10]) * 100 * 0.01
+print(paste('Change in Price when yield rate changed:',long_price_change - short_price_change))
+```
+If the yield increase by 0.01, the decrease in 5 yr bond we long is equal to increase in replicating portfolio we short (composed by 2yr and 10yr bond). Therefore, we get a total of 0 loss with change in yield rate. Here we are assuming that the DV01 is the effective DV01 and that there are only parallel curve movements.
+
+5. Compute the convexities for each of these 10 par bonds.
+```{r}
+Convexity <- c()
+for (i in 1:10){
+  N <- i * 2
+  time <- seq(1:N)
+  y <- annual_par[i]/100
+  CF <- rep(annual_par[i]/2, N)  
+  CF[N] <- CF[N] + 100 
+  num <- sum(time * (time + 1) * SPOT$`D(T)`[1:N] * CF[1:N])
+  den <- (1 + y/2)^2 * 2^2 * 100
+  Convexity[i] <- num/den
+  
+}
+print('Convexity:')
+print(Convexity)
+```
+
+6. Use the computed dollar durations and convexities for these bonds and compute the price change of a 100 basis point upward and downward parallel shift in the spot curve. Compare the price changes with the actual price change obtained by recomputing the price of the bond from the shifted spot curve.
+
+```{r}
+Spot_rate <- 2 * ((1/SPOT$`D(T)`[1:20]) ^ (1/(2 * SPOT$T[1:20])) - 1)
+Decrease <- (1/(1+(Spot_rate-0.01)/2)^(2*SPOT$T[1:20]))
+Increase <-(1/(1+(Spot_rate+0.01)/2)^(2*SPOT$T[1:20]))
+p_increase <- c()
+p_decrease <- c()
+for (i in 1:10){
+  N <- i * 2
+  time <- seq(1:N)
+  CF <- rep(annual_par[i]/2, N)  
+  CF[N] <- CF[N] + 100 
+  p_increase[i] <- sum(CF [1:N] * Increase[1:N]) - 100
+  p_decrease[i] <- sum(CF [1:N] * Decrease[1:N]) - 100
+}
+print(paste('Increase in Price:'))
+print(round(p_increase,digits = 6))
+print(paste('Decrease in Price:'))
+print(round(p_decrease,digits = 6))
+```
+
+```{r}
+changeup <- -Modified * 0.01 * 100 + 0.5 * Convexity * 0.01^2 * 100
+changedown <- -Modified * -0.01 * 100 + 0.5 * Convexity * 0.01^2 * 100
+print(paste('Prediction with C and MD when Spot rate increase:'))
+print(round(changeup,digits = 6))
+print(paste('Prediction with C and MD when Spot rate decrease:'))
+print(round(changedown,digits = 6))
+```
+
+```{r}
+diff1 <- abs(p_increase - changeup)
+diff2 <- abs(p_decrease - changedown)
+print(paste('Difference when Spot Rate increase:'))
+print(round(diff1,digits = 6))
+print(paste('Difference when Spot Rate decrease:'))
+print(round(diff2,digits = 6))
+```
+
+Difference between using duration and convexity with change spot rate is comparatively close. However, the error increase with time to maturity increase. 
+

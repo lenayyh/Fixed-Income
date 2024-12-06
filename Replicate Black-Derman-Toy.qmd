@@ -1,0 +1,107 @@
+---
+title: "Fixed Income HW6"
+format: pdf
+editor: visual
+---
+```{r}
+library(readxl)
+vol <- read_excel('Homework_6_Data.xlsx', sheet = 'Volatility Data')[2:31,]
+colnames(vol) <- c("T", "Volatility")
+D_T <- read_excel('Homework_6_Data.xlsx', sheet = 'Discount Factors')[4:33,]
+colnames(D_T) <- c("T", "Discount")
+D_T$T <- as.numeric(D_T$T)
+dis <- as.numeric(D_T$Discount)
+vola <- as.numeric(vol$Volatility)
+```
+
+
+
+```{r}
+r0 <- (1/dis[1] - 1) * 2
+R <- matrix(NaN, nrow = 30, ncol = 30, byrow = TRUE)
+R[1,1] <- r0
+equation <- function(x) {
+  exp_term <- exp(-2 * sqrt(0.5) * vola[1])
+  result <- dis[1] * (0.5 * 1 / (1 + x/2) 
+                      + 0.5 * 1 / (1 + x * exp_term/2)) - dis[2]
+  return(result)
+}
+
+solution <- uniroot(equation, interval = c(0, 1))
+R[1,2] <- solution$root
+R[2,2] <- R[1,2] *  exp(-2 * sqrt(0.5) * vola[1]);R
+```
+
+
+```{r}
+equation <- function(x) {
+  exp_term <- exp(-2 * sqrt(0.5) * vola[2])
+  
+  result <- dis[1] * (0.5 * 1 / (1 + R[1,2] /2) 
+                      * (0.5 * 1 / (1 + x/2) + 0.5 * 1 / (1 + x * exp_term/2)) 
+                      + 0.5 * 1 / (1 + R[2,2]/2) 
+                      * (0.5 * 1 / (1 + x*exp_term/2) + 0.5 * 1 / (1 + x * exp_term^2/2))) - dis[3]
+  return(result)
+}
+
+solution <- uniroot(equation, interval = c(0, 1))
+R[1,3] <- solution$root
+R[2,3] <- R[1,3] *  exp(-2 * sqrt(0.5) * vola[2])
+R[3,3] <- R[1,3] *  exp(-2 * sqrt(0.5) * vola[2])^2
+```
+
+```{r}
+equation <- function(x) {
+  exp_term <- exp(-2 * sqrt(0.5) * vola[3])
+  result <- dis[1] * (0.5 * 1 / (1 + R[1,2] /2)
+                      *(0.5 * 1 / (1 + R[1,3]/2)
+                        *(0.5 * 1 / (1 + x/2) + 0.5 * 1 / (1 + x * exp_term/2)) 
+                    + 0.5 * 1 / (1 + R[2,3]/2)
+                        *(0.5 * 1 / (1 + x* exp_term/2) + 0.5 * 1 / (1 + x * exp_term^2/2))) 
+                    + 0.5 * 1 / (1 + R[2,2]/2) * (0.5 * 1 / (1 + R[2,3]/2)
+                        *(0.5 * 1 / (1 + x* exp_term/2) + 0.5 * 1 / (1 + x * exp_term^2/2)) 
+                    + 0.5 * 1 / (1 + R[3,3]/2)
+                        *(0.5 * 1 / (1 + x* exp_term^2/2) 
+                    + 0.5 * 1 / (1 + x * exp_term^3/2)))) - dis[4]
+  return(result)
+}
+
+solution <- uniroot(equation, interval = c(0, 1))
+R[1,4] <- solution$root
+R[2,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])
+R[3,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])^2
+R[4,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])^3
+R
+```
+
+
+
+```{r}
+equation <- function(x) {
+  exp_term <- exp(-2 * sqrt(0.5) * vola[3])
+  result <- dis[1] * (0.5 * 1 / (1 + R[1,2] /2)
+                      *(0.5 * 1 / (1 + R[1,3]/2)*(0.5 * 1 / (1 + x/2) 
+                    + 0.5 * 1 / (1 + x * exp_term/2)) 
+                    + 0.5 * 1 / (1 + R[2,3]/2)*(0.5 * 1 / (1 + x* exp_term/2) 
+                    + 0.5 * 1 / (1 + x * exp_term^2/2))) 
+                    + 0.5 * 1 / (1 + R[2,2]/2) * (0.5 * 1 / (1 + R[2,3]/2)*(0.5 * 1 / (1 + x* exp_term/2) 
+                    + 0.5 * 1 / (1 + x * exp_term^2/2)) 
+                    + 0.5 * 1 / (1 + R[3,3]/2)*(0.5 * 1 / (1 + x* exp_term^2/2) 
+                    + 0.5 * 1 / (1 + x * exp_term^3/2)))) - dis[4]
+  return(result)
+}
+
+solution <- uniroot(equation, interval = c(0, 1))
+R[1,4] <- solution$root
+R[2,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])
+R[3,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])^2
+R[4,4] <- R[1,4] *  exp(-2 * sqrt(0.5) * vola[3])^3
+```
+
+
+
+```{r}
+
+```
+
+

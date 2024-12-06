@@ -1,0 +1,169 @@
+---
+title: "empirical hw6"
+format: pdf
+editor: visual
+---
+
+```{r echo=FALSE}
+```
+
+
+```{r}
+library(readxl)
+data <- read_excel("Homework_5_Data.xlsx")
+data[,2:7]<- data[,2:7]/100
+```
+
+```{r}
+data
+```
+
+$$A(T) = exp( \left ( \frac{\sigma^2}{2\beta^2 }-\frac{\alpha}{\beta} \right)T + \left ( \frac{\alpha}{\beta^2 }-\frac{\sigma^2}{\beta^3} \right)(1-e^{-\beta T})+\frac{\sigma^2}{4\beta^3}(1-e^{-2\beta T}))$$
+
+```{r}
+A_T <- function(alpha, beta, sigma, T) {
+  result <- exp(
+    (sigma^2 / (2 * beta^2) - alpha / beta) * T +
+    (alpha / beta^2 - sigma^2 / beta^3) * (1 - exp(-beta * T)) +
+    sigma^2 / (4 * beta^3) * (1 - exp(-2 * beta * T))
+  )
+  return(result)
+}
+```
+
+$$B(T) = \frac{1}{\beta}(1-e^{-\beta T})$$
+
+```{r}
+B_T <- function(beta, T) {
+  result <- (1 / beta) * (1 - exp(-beta * T))
+  return(result)
+}
+B_T(0.03832,0.25)
+```
+
+$$D(T) = A_X(T)A_Y(T)exp(-B_X(T)X-B_Y(T)Y)$$ $$ln(A_X(T))+ ln(A_Y(T)) + r_T * T =B_X(T)X+B_Y(T)Y$$
+
+```{r}
+XY <- function(d1, d2, a_x, b_x, s_x, b_y, s_y) {
+  t1 <- 0.25
+  t2 <- 10
+  a_y = 0
+
+  d1 <- as.numeric(d1)
+  d2 <- as.numeric(d2)
+  
+  B_xy <- matrix(c(B_T(b_x, t1), B_T(b_y, t1), B_T(b_x, t2), B_T(b_y, t2)), nrow = 2, byrow = TRUE)
+  
+  A_xy <- matrix(c(d1 * t1 + log(A_T(a_x, b_x, s_x, t1)) + log(A_T(a_y, b_y, s_y, t1)),
+                   d2 * t2 + log(A_T(a_x, b_x, s_x, t2)) + log(A_T(a_y, b_y, s_y, t2))), nrow = 2, byrow = TRUE)
+  
+  states <- solve(B_xy) %*% A_xy
+  
+  return(states)
+}
+```
+
+```{r}
+D <- function(X,Y,a_x, b_x, s_x, b_y, s_y, t1) {
+  a_y <- 0
+  result <- A_T(a_x, b_x, s_x, t1) * A_T(a_y, b_y, s_y, t1) * exp(-B_T(b_x, t1) * X - B_T(b_y, t1) * Y)
+ 
+  return(result)
+}
+```
+
+```{r}
+sum_sq_diff <- function(params, data) {
+  a_x <- params[1]
+  b_x <- params[2]
+  s_x <- params[3]
+  b_y <- params[4]
+  s_y <- params[5]
+  
+  emp <- matrix(0, nrow = nrow(data), ncol = 2)
+  for (i in 1:650) {
+    result <- XY(data[i, 2], data[i, 7], a_x, b_x, s_x, b_y, s_y)
+    emp[i, 1] <- result[1]
+    emp[i, 2] <- result[2]
+  }
+  
+  discount <- matrix(0, nrow = nrow(data), ncol = 4)
+  t <- c(2, 3, 5, 7)
+  for (i in 1:4) {
+    for (j in 1:650) {
+      discount[j, i] <- D(X = emp[j, 1], Y = emp[j, 2], a_x, b_x, s_x, b_y, s_y, t[i])
+    }
+  }
+  
+  Spot <- matrix(0, nrow = nrow(data), ncol = 4)
+  for (i in 1:4) {
+    Spot[, i] <- 2 * ((discount[, i]) ^ (-1 / (2 * t[i])) - 1)
+  }
+  
+  sqdf <- (Spot - data[3:6]) ^ 2
+  return(sum(sqdf))
+}
+
+initial_params <- c(0.00411, 0.03832, 0.00978, 0.44871, 0.01847)
+
+result <- optim(par = initial_params, fn = sum_sq_diff, data = data)
+
+print(result$par)
+
+```
+
+```{r}
+emp <- matrix(0, nrow = nrow(data), ncol = 2)
+
+for (i in 1:650){
+  result <- XY(data[i, 2], data[i, 7],0.0007255433,-0.0097725042, 0.0086574159, 0.5695699229, 0.0256020324)
+  emp[i,1] <- result[1]
+  emp[i,2] <- result[2]
+}
+```
+
+```{r}
+plot(emp[,1], type = 'l', main = 'X')
+plot(emp[,2], type = 'l', main = 'Y')
+```
+
+```{r}
+emp1 <- matrix(0, nrow = nrow(data), ncol = 2)
+
+for (i in 1:650){
+  result <- XY(data[i, 2], data[i, 7],0.0007255433,-0.0097725042, 0, 0.5695699229, 0)
+  emp1[i,1] <- result[1]
+  emp1[i,2] <- result[2]
+}
+```
+
+```{r}
+XY_means <- apply(emp, 2, mean);XY_means
+XY_var <- apply(emp, 2, var);XY_var
+XY_means2 <- apply(emp1, 2, mean);XY_means2
+XY_var2 <- apply(emp1, 2, var);XY_var2
+```
+
+```{r}
+discount <- matrix(0, nrow = nrow(data), ncol = 4)
+  t <- c(2, 3, 5, 7)
+  for (i in 1:4) {
+    for (j in 1:650) {
+      discount[j, i] <- D(X = emp[j, 1], Y = emp[j, 2],0.0007255433,-0.0097725042, 0.0086574159, 0.5695699229, 0.0256020324, t[i])
+    }
+  }
+  
+Spot <- matrix(0, nrow = nrow(data), ncol = 4)
+  for (i in 1:4) {
+    Spot[, i] <- 2 * ((discount[, i]) ^ (-1 / (2 * t[i])) - 1)
+  }
+  
+sqdf <- (Spot - data[3:6]) 
+```
+
+```{r}
+plot(sqdf[,1], type = 'l', main = '2 yr')
+plot(sqdf[,2], type = 'l', main = '3 yr')
+plot(sqdf[,3], type = 'l', main = '5 yr')
+plot(sqdf[,4], type = 'l', main = '7 yr')
+```
